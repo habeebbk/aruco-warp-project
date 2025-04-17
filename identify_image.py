@@ -22,14 +22,25 @@ cap = cv2.VideoCapture(0)
 
 print("📷 Show an image to the camera. Press 'q' to quit.")
 
+processed_images = set()
 last_detected = None
 last_update_time = 0
-DELAY_SECONDS = 0.5
+cooldown_start_time = 0
+COOLDOWN_DURATION = 1.0  # 1 second
 
 while True:
     ret, frame = cap.read()
     if not ret:
         break
+
+    current_time = time.time()
+
+    # Skip detection if we're in cooldown
+    if current_time - cooldown_start_time < COOLDOWN_DURATION:
+        cv2.imshow("Live Feed", frame)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+        continue
 
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     corners, ids, _ = detector.detectMarkers(gray)
@@ -45,30 +56,26 @@ while True:
 
         if matches:
             best_match = max(matches, key=matches.get)
-            current_time = time.time()
 
-            if best_match != last_detected or (current_time - last_update_time) > DELAY_SECONDS:
+            if best_match not in processed_images:
                 print(f"🔍 Detected: {best_match}")
                 last_detected = best_match
                 last_update_time = current_time
 
-                # Use all marker corners
                 id_to_corner = {i: c[0] for i, c in zip(ids.flatten(), corners)}
-
                 ordered_ids = marker_id_map[best_match]
+
                 try:
-                    # Use the corners in correct order: TL, TR, BL, BR
                     ordered_points = np.array([
-                        id_to_corner[ordered_ids[0]][0],  # top-left corner of marker 0
-                        id_to_corner[ordered_ids[1]][1],  # top-right corner of marker 1
-                        id_to_corner[ordered_ids[2]][3],  # bottom-left corner of marker 2
-                        id_to_corner[ordered_ids[3]][2],  # bottom-right corner of marker 3
+                        id_to_corner[ordered_ids[0]][0],
+                        id_to_corner[ordered_ids[1]][1],
+                        id_to_corner[ordered_ids[2]][3],
+                        id_to_corner[ordered_ids[3]][2],
                     ], dtype="float32")
                 except KeyError:
                     print("⚠️ Some expected marker IDs not detected. Skipping.")
                     continue
 
-                # Load the original image to get size
                 original_path = os.path.join("output", best_match)
                 original_img = cv2.imread(original_path)
 
@@ -76,7 +83,6 @@ while True:
                     print(f"⚠️ Original image not found: {original_path}")
                     continue
 
-                # Padding
                 padding_top = 150
                 padding_bottom = 150
                 padding_left = 150
@@ -96,15 +102,26 @@ while True:
                 M = cv2.getPerspectiveTransform(ordered_points, dst_points)
                 warped = cv2.warpPerspective(frame, M, (padded_w, padded_h))
 
-                # Save warped output
-                cv2.imwrite(original_path, warped)
-                print(f"✅ Warped & saved: {original_path}")
+                # Save with name_uid format
+                uid = time.strftime("%Y%m%d%H%M%S")
+                filename = f"{os.path.splitext(best_match)[0]}_{uid}.jpg"
+                save_path = os.path.join("output", filename)
+                cv2.imwrite(save_path, warped)
+                print(f"✅ Warped & saved: {save_path}")
+
+                processed_images.add(best_match)
+                cooldown_start_time = time.time()  # 🔥 Start cooldown after save
 
                 cv2.putText(warped, f"Warped: {best_match}", (30, 40),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
                 cv2.imshow("Warped Output", warped)
 
-    # Optional overlay marker detection on live feed
+    else:
+        # No detection case
+        if current_time - last_update_time > 1:
+            processed_images.clear()
+            last_detected = None
+
     if corners:
         cv2.aruco.drawDetectedMarkers(frame, corners, ids)
 

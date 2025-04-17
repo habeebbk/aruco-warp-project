@@ -1,41 +1,41 @@
 {
-  "aruco_4_corners.jpg": [
+  "e1.png": [
     0,
     1,
     2,
     3
   ],
-  "aruco_4_corners1.jpg": [
+  "e2.png": [
     4,
     5,
     6,
     7
   ],
-  "body_Texture.png": [
+  "e3.jpg": [
     8,
     9,
     10,
     11
   ],
-  "body_Texture_replaced.png": [
+  "l1.png": [
     12,
     13,
     14,
     15
   ],
-  "e1.png": [
+  "l2.png": [
     16,
     17,
     18,
     19
   ],
-  "e2.png": [
+  "page1.jpg": [
     20,
     21,
     22,
     23
   ],
-  "new_image_1744821996.jpg": [
+  "page2.jpg": [
     24,
     25,
     26,
